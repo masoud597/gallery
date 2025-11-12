@@ -58,13 +58,12 @@ public class MainActivity extends AppCompatActivity {
         for (String image : listImages) {
             String assetPath = "file:///android_asset/img/" + image;
             long imageSize = 0L;
-            try {
-                AssetFileDescriptor afd = context.getAssets().openFd("img/"+image);
+            try (AssetFileDescriptor afd = context.getAssets().openFd("img/" + image)) {
                 imageSize = afd.getLength();
-            } catch (IOException e) {
+            } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-            images.add(new ImageModel(imageSize , System.currentTimeMillis(), Uri.parse(assetPath)));
+            images.add(new ImageModel(imageSize , System.currentTimeMillis(), Uri.parse("/img/"+image)));
 
         }
         ImageAdapter imageAdapter = new ImageAdapter(this, images);

@@ -1,27 +1,33 @@
 package com.example.gallery;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
-
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
-
-import com.bumptech.glide.Glide;
-
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ViewHolder> {
 
     private final Context context;
     private final ArrayList<ImageModel> imageModelArraylist;
+    ExecutorService executor;
 
     public ImageAdapter(Context context, ArrayList<ImageModel> imageModelArraylist) {
         this.context = context;
         this.imageModelArraylist = imageModelArraylist;
+        this.executor = Executors.newFixedThreadPool(4);
     }
 
     @NonNull
@@ -37,12 +43,69 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ViewHolder> 
 
         holder.textDate.setText(model.get_ImageDate());
         holder.textSize.setText(model.get_ImageSize());
+        holder.imageView.setImageResource(R.drawable.ic_launcher_background);
 
-        Glide.with(context)
-                .load(model.get_ImageURI())
-                .placeholder(R.drawable.ic_launcher_background)
-                .error(R.drawable.ic_launcher_foreground)
-                .into(holder.imageView);
+        Handler handler = new Handler(Looper.getMainLooper());
+
+        holder.imageView.setTag(model.get_ImageURI().toString());
+        executor.execute(() -> {
+            Bitmap bitmap = null;
+
+            try {
+                String assetPath = model.get_ImageURI().getPath().substring(1);
+                bitmap = decodeSampledBitmap(assetPath, 150, 150);
+
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            Bitmap finalBitmap = bitmap;
+            handler.post(() -> {
+                if (holder.imageView.getTag().equals(model.get_ImageURI().toString())) {
+                    if (finalBitmap != null) {
+                        holder.imageView.setImageBitmap(finalBitmap);
+                    }else {
+                        holder.imageView.setImageResource(R.drawable.ic_launcher_foreground);
+                    }
+                }
+            });
+        });
+    }
+
+    private Bitmap decodeSampledBitmap(String assetPath, int width, int height) throws IOException {
+        final BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+
+        try(InputStream inputStream = context.getAssets().open(assetPath)) {
+            BitmapFactory.decodeStream(inputStream, null, options);
+        }
+        options.inSampleSize = calculateSampleSize(options, width, height);
+        options.inJustDecodeBounds = false;
+
+        try(InputStream finalInputStream = context.getAssets().open(assetPath)) {
+            return BitmapFactory.decodeStream(finalInputStream, null, options);
+        }
+    }
+
+    private int calculateSampleSize(BitmapFactory.Options options, int width, int height) {
+        final int acWidth = options.outWidth;
+        final int acHeight = options.outHeight;
+        int sampleSize = 1;
+
+        if (acHeight > height || acWidth > width) {
+            final int halfHeight = acHeight / 2;
+            final int halfWidth = acWidth / 2;
+
+            while ((halfHeight / sampleSize) >= height && (halfWidth / sampleSize) >= width) {
+                sampleSize *= 2;
+            }
+        }
+        return sampleSize;
+    }
+
+    @Override
+    public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
+        super.onDetachedFromRecyclerView(recyclerView);
+        executor.shutdown();
     }
 
     @Override

@@ -12,9 +12,11 @@ public class ImageModel {
     private String _ImageSize;
 
     public ImageModel(Long imageSize, Long imageDate, Uri imageID) {
+        // convert the date from numbers to readable format
         Date date = new Date(imageDate);
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd", Locale.getDefault());
 
+        // convert bytes to megabytes
         double sizeInMB = (double) imageSize / (1024 * 1024);
         _ImageSize = String.format(Locale.getDefault(), "%.2f MB", sizeInMB);
         _ImageDate = sdf.format(date);
