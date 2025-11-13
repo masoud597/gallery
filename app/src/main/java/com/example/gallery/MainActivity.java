@@ -34,11 +34,10 @@ public class MainActivity extends AppCompatActivity {
 
     public static final String PREFS_NAME = "GPref";
     public static final String KEY_DID_RUN = "DidRun";
-
-    private int columns = 2;
     private Context context;
     private RecyclerView recView;
     private GridLayoutManager gridLayoutManager;
+    private CustomFAB bottomPanel;
     private SharedPreferences sharedpref;
     ImageAdapter imageAdapter;
 
@@ -57,8 +56,8 @@ public class MainActivity extends AppCompatActivity {
 
         context = getApplicationContext();
         recView = findViewById(R.id.recView);
-        FloatingActionButton changeLayoutBtn = findViewById(R.id.btnChangeLayout);
-        gridLayoutManager = new GridLayoutManager(this, columns);
+        bottomPanel = findViewById(R.id.bottomPanel);
+        gridLayoutManager = new GridLayoutManager(this, 2);
         recView.setLayoutManager(gridLayoutManager);
         String[] image = getAssetsList();
         for (String img : image) {
@@ -70,10 +69,8 @@ public class MainActivity extends AppCompatActivity {
         recView.setAdapter(imageAdapter);
 
         loadImages();
-
-        changeLayoutBtn.setOnClickListener(v -> {
-            columns = (columns == 2) ? 1 : 2;
-            gridLayoutManager.setSpanCount(columns);
+        bottomPanel.setOnSelectedColumnChangeListener(c -> {
+            gridLayoutManager.setSpanCount(c);
         });
     }
 
