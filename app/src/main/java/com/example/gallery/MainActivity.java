@@ -1,9 +1,12 @@
 package com.example.gallery;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.res.AssetFileDescriptor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.activity.EdgeToEdge;
@@ -22,11 +25,25 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
+
+    public static final String PREFS_NAME = "GPref";
+    public static final String KEY_DID_RUN = "DidRun";
+
     private int columns = 2;
+    private Context context;
     private RecyclerView recView;
     private GridLayoutManager gridLayoutManager;
+    private SharedPreferences sharedpref;
+    ImageAdapter imageAdapter;
+
+    private  ArrayList<ImageModel> images = new ArrayList<>();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -38,40 +55,96 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
-        Context context = getApplicationContext();
-
+        context = getApplicationContext();
         recView = findViewById(R.id.recView);
         FloatingActionButton changeLayoutBtn = findViewById(R.id.btnChangeLayout);
-
         gridLayoutManager = new GridLayoutManager(this, columns);
         recView.setLayoutManager(gridLayoutManager);
+        String[] image = getAssetsList();
+        for (String img : image) {
+            Log.d("tag", img);
+        }
 
-        ArrayList<ImageModel> images = new ArrayList<>();
 
+        imageAdapter = new ImageAdapter(this, images);
+        recView.setAdapter(imageAdapter);
+
+        loadImages();
+
+        changeLayoutBtn.setOnClickListener(v -> {
+            columns = (columns == 2) ? 1 : 2;
+            gridLayoutManager.setSpanCount(columns);
+        });
+    }
+
+    private String[] getAssetsList() {
         String[] listImages;
         try {
             listImages = context.getAssets().list("img");
         } catch (IOException e) {
             listImages = new String[0];
         }
+        return listImages;
+    }
 
-        for (String image : listImages) {
-            String assetPath = "file:///android_asset/img/" + image;
-            long imageSize = 0L;
-            try (AssetFileDescriptor afd = context.getAssets().openFd("img/" + image)) {
-                imageSize = afd.getLength();
-            } catch (Exception e) {
+    private void loadImages() {
+        ExecutorService executorService = Executors.newFixedThreadPool(4);
+        Handler handler = new Handler(Looper.getMainLooper());
+
+        executorService.execute(() -> {
+            sharedpref = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            if (!sharedpref.getBoolean(KEY_DID_RUN, false)) {
+                copyAssetImagesToInternalStorage();
+                sharedpref.edit().putBoolean(KEY_DID_RUN, true).apply();
+            }
+            java.util.ArrayList<ImageModel> tempImages = getImageListsFromInternalStorage();
+
+            handler.post(() -> {
+                images.clear();
+                images.addAll(tempImages);
+                imageAdapter.notifyDataSetChanged();
+            });
+        });
+
+
+    }
+    private void copyAssetImagesToInternalStorage(){
+        for (String image : getAssetsList()) {
+            File copiedFile = new File(context.getFilesDir(), image);
+            if (copiedFile.exists()) continue;
+
+            try(InputStream inputStream = context.getAssets().open("img/" + image);
+                OutputStream outputStream = new FileOutputStream(copiedFile)){
+                byte[] buffer = new byte[1024];
+                int length;
+                while ((length = inputStream.read(buffer)) > 0) {
+                    outputStream.write(buffer, 0, length);
+                }
+            } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            images.add(new ImageModel(imageSize , System.currentTimeMillis(), Uri.parse("/img/"+image)));
-
         }
-        ImageAdapter imageAdapter = new ImageAdapter(this, images);
-        recView.setAdapter(imageAdapter);
 
-        changeLayoutBtn.setOnClickListener(v -> {
-            columns = (columns == 2) ? 1 : 2;
-            gridLayoutManager.setSpanCount(columns);
+    }
+    private ArrayList<ImageModel> getImageListsFromInternalStorage(){
+        ArrayList<ImageModel> imageList = new ArrayList<>();
+        File internalStorage = context.getFilesDir();
+
+        File[] imageFiles =internalStorage.listFiles((dir, name) -> {
+            String lowerCaseName = name.toLowerCase();
+            return lowerCaseName.endsWith(".jpg") ||lowerCaseName.endsWith(".jpeg") || lowerCaseName.endsWith(".png");
         });
+        if (imageFiles != null) {
+            Arrays.sort(imageFiles, Comparator.comparingLong(File::lastModified));
+
+            for (File file : imageFiles) {
+                long fileSize = file.length();
+                long fileDate = file.lastModified();
+                Uri fileUri = Uri.fromFile(file);
+
+                imageList.add(new ImageModel(fileSize, fileDate, fileUri));
+            }
+        }
+        return imageList;
     }
 }

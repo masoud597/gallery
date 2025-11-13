@@ -3,6 +3,7 @@ package com.example.gallery;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.LayoutInflater;
@@ -52,8 +53,7 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ViewHolder> 
             Bitmap bitmap = null;
 
             try {
-                String assetPath = model.get_ImageURI().getPath().substring(1);
-                bitmap = decodeSampledBitmap(assetPath, 150, 150);
+                bitmap = decodeSampledBitmap(model.get_ImageURI(), 150, 150);
 
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -71,19 +71,17 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ViewHolder> 
         });
     }
 
-    private Bitmap decodeSampledBitmap(String assetPath, int width, int height) throws IOException {
+    private Bitmap decodeSampledBitmap(Uri fileUri, int width, int height) throws IOException {
+        String filePath = fileUri.getPath();
         final BitmapFactory.Options options = new BitmapFactory.Options();
         options.inJustDecodeBounds = true;
 
-        try(InputStream inputStream = context.getAssets().open(assetPath)) {
-            BitmapFactory.decodeStream(inputStream, null, options);
-        }
+        BitmapFactory.decodeFile(filePath, options);
+
         options.inSampleSize = calculateSampleSize(options, width, height);
         options.inJustDecodeBounds = false;
 
-        try(InputStream finalInputStream = context.getAssets().open(assetPath)) {
-            return BitmapFactory.decodeStream(finalInputStream, null, options);
-        }
+        return BitmapFactory.decodeFile(filePath, options);
     }
 
     private int calculateSampleSize(BitmapFactory.Options options, int width, int height) {
