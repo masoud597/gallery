@@ -5,10 +5,8 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
-import android.view.View;
 import android.widget.LinearLayout;
 
-import androidx.core.view.ViewCompat;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
@@ -31,7 +29,6 @@ public class CustomFAB extends LinearLayout {
             }
         }
     }
-    public int getSelectedColumn() {return selectedColumn;}
 
 
     public CustomFAB(Context context, AttributeSet attributeSet) {
@@ -71,6 +68,8 @@ public class CustomFAB extends LinearLayout {
         btnTwo.setImageResource(R.drawable.two);
         btnOpen.setImageResource(R.drawable.add);
 
+        btnOpen.setVisibility(GONE);
+
         btnOne.setBackgroundTintList(ColorStateList.valueOf(Color.WHITE));
         btnTwo.setBackgroundTintList(ColorStateList.valueOf(Color.LTGRAY));
         btnOpen.setBackgroundTintList(ColorStateList.valueOf(Color.WHITE));
@@ -95,6 +94,6 @@ public class CustomFAB extends LinearLayout {
         });
     }
     public void setOpenButtonOnClickListener(Runnable action) {
-        btnOpen.setOnClickListener(v -> { action.run(); });
+        btnOpen.setOnClickListener(v -> action.run());
     }
 }

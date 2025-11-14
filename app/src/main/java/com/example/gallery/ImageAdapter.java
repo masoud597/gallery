@@ -14,7 +14,6 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -50,7 +49,7 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ViewHolder> 
 
         holder.imageView.setTag(model.get_ImageURI().toString());
         executor.execute(() -> {
-            Bitmap bitmap = null;
+            Bitmap bitmap;
 
             try {
                 bitmap = decodeSampledBitmap(model.get_ImageURI(), 150, 150);

@@ -2,7 +2,6 @@ package com.example.gallery;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.content.res.AssetFileDescriptor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -17,7 +16,6 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -35,9 +33,7 @@ public class MainActivity extends AppCompatActivity {
     public static final String PREFS_NAME = "GPref";
     public static final String KEY_DID_RUN = "DidRun";
     private Context context;
-    private RecyclerView recView;
     private GridLayoutManager gridLayoutManager;
-    private CustomFAB bottomPanel;
     private SharedPreferences sharedpref;
     ImageAdapter imageAdapter;
 
@@ -55,8 +51,8 @@ public class MainActivity extends AppCompatActivity {
         });
 
         context = getApplicationContext();
-        recView = findViewById(R.id.recView);
-        bottomPanel = findViewById(R.id.bottomPanel);
+        RecyclerView recView = findViewById(R.id.recView);
+        CustomFAB bottomPanel = findViewById(R.id.bottomPanel);
         gridLayoutManager = new GridLayoutManager(this, 2);
         recView.setLayoutManager(gridLayoutManager);
         String[] image = getAssetsList();
@@ -69,9 +65,7 @@ public class MainActivity extends AppCompatActivity {
         recView.setAdapter(imageAdapter);
 
         loadImages();
-        bottomPanel.setOnSelectedColumnChangeListener(c -> {
-            gridLayoutManager.setSpanCount(c);
-        });
+        bottomPanel.setOnSelectedColumnChangeListener(c -> gridLayoutManager.setSpanCount(c));
     }
 
     private String[] getAssetsList() {
