@@ -1,6 +1,5 @@
 package com.example.gallery;
 
-import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -19,16 +18,16 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ViewHolder> {
+    private static final int SAMPLE_WIDTH = 150;
+    private static final int SAMPLE_HEIGHT = 150;
 
-    private final Context context;
     private final ArrayList<ImageModel> imageModelArraylist;
     ExecutorService executor;
     private final OnImageLongClickListener longClickListener;
     public interface OnImageLongClickListener {
         void onImageLongClicked(int position);
     }
-    public ImageAdapter(Context context, ArrayList<ImageModel> imageModelArraylist, OnImageLongClickListener listener) {
-        this.context = context;
+    public ImageAdapter(ArrayList<ImageModel> imageModelArraylist, OnImageLongClickListener listener) {
         this.imageModelArraylist = imageModelArraylist;
         this.executor = Executors.newFixedThreadPool(4);
         this.longClickListener = listener;
@@ -56,7 +55,7 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ViewHolder> 
             Bitmap bitmap;
 
             try {
-                bitmap = decodeSampledBitmap(model.get_ImageURI(), 150, 150);
+                bitmap = decodeSampledBitmap(model.get_ImageURI());
 
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -84,29 +83,29 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ViewHolder> 
         });
     }
 
-    private Bitmap decodeSampledBitmap(Uri fileUri, int width, int height) throws IOException {
+    private Bitmap decodeSampledBitmap(Uri fileUri) throws IOException {
         String filePath = fileUri.getPath();
         final BitmapFactory.Options options = new BitmapFactory.Options();
         options.inJustDecodeBounds = true;
 
         BitmapFactory.decodeFile(filePath, options);
 
-        options.inSampleSize = calculateSampleSize(options, width, height);
+        options.inSampleSize = calculateSampleSize(options);
         options.inJustDecodeBounds = false;
 
         return BitmapFactory.decodeFile(filePath, options);
     }
 
-    private int calculateSampleSize(BitmapFactory.Options options, int width, int height) {
+    private int calculateSampleSize(BitmapFactory.Options options) {
         final int acWidth = options.outWidth;
         final int acHeight = options.outHeight;
         int sampleSize = 1;
 
-        if (acHeight > height || acWidth > width) {
+        if (acHeight > ImageAdapter.SAMPLE_HEIGHT || acWidth > ImageAdapter.SAMPLE_WIDTH) {
             final int halfHeight = acHeight / 2;
             final int halfWidth = acWidth / 2;
 
-            while ((halfHeight / sampleSize) >= height && (halfWidth / sampleSize) >= width) {
+            while ((halfHeight / sampleSize) >= ImageAdapter.SAMPLE_HEIGHT && (halfWidth / sampleSize) >= ImageAdapter.SAMPLE_WIDTH) {
                 sampleSize *= 2;
             }
         }

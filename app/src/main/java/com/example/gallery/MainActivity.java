@@ -27,6 +27,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -65,14 +66,12 @@ public class MainActivity extends AppCompatActivity implements ImageAdapter.OnIm
             }
         });
 
-        imageAdapter = new ImageAdapter(this, images, this);
+        imageAdapter = new ImageAdapter(images, this);
         recView.setAdapter(imageAdapter);
 
         loadImages();
         bottomPanel.setOnSelectedColumnChangeListener(c -> gridLayoutManager.setSpanCount(c));
-        bottomPanel.setOpenButtonOnClickListener(() -> {
-            selectImage.launch("image/*");
-        });
+        bottomPanel.setOpenButtonOnClickListener(() -> selectImage.launch("image/*"));
     }
     private void copySelectedImageToInternalStorage(Uri uri) {
         try (ExecutorService executorService = Executors.newSingleThreadExecutor()) {
@@ -122,11 +121,17 @@ public class MainActivity extends AppCompatActivity implements ImageAdapter.OnIm
     }
     private void copyAssetImagesToInternalStorage(){
         String[] listImages;
-        try {
-            listImages = context.getAssets().list("img");
-        } catch (IOException e) {
+        if (context != null) {
+            try {
+                listImages = context.getAssets().list("img");
+                if (listImages == null) listImages = new String[0];
+            } catch (IOException e) {
+                listImages = new String[0];
+            }
+        }else {
             listImages = new String[0];
         }
+
         for (String image : listImages) {
             File copiedFile = new File(context.getFilesDir(), image);
             if (copiedFile.exists()) continue;
@@ -172,33 +177,32 @@ public class MainActivity extends AppCompatActivity implements ImageAdapter.OnIm
         new AlertDialog.Builder(this)
                 .setTitle("Delete Image")
                 .setMessage("Are you sure you want to delete this image?")
-                .setPositiveButton("Delete", (dialog, which) -> {
-                    deleteImage(imgToDelete, position);
-                })
+                .setPositiveButton("Delete", (dialog, which) -> deleteImage(imgToDelete, position))
                 .setNegativeButton("Cancel", null)
                 .show();
 
     }
 
     private void deleteImage(ImageModel imgToDelete, int position) {
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        Handler handler = new Handler(getMainLooper());
+        try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
+            Handler handler = new Handler(getMainLooper());
 
-        executor.execute(() -> {
-            File fileToDelete = new File(imgToDelete.get_ImageURI().getPath());
-            boolean gotDeleted;
-            if (fileToDelete.exists()) gotDeleted = fileToDelete.delete();
-            else {
-                gotDeleted = false;
-            }
-
-            handler.post(() -> {
-                if (gotDeleted) {
-                    images.remove(position);
-                    imageAdapter.notifyItemRemoved(position);
-                    imageAdapter.notifyItemRangeChanged(position, images.size());
+            executor.execute(() -> {
+                File fileToDelete = new File(Objects.requireNonNull(imgToDelete.get_ImageURI().getPath()));
+                boolean gotDeleted;
+                if (fileToDelete.exists()) gotDeleted = fileToDelete.delete();
+                else {
+                    gotDeleted = false;
                 }
+
+                handler.post(() -> {
+                    if (gotDeleted) {
+                        images.remove(position);
+                        imageAdapter.notifyItemRemoved(position);
+                        imageAdapter.notifyItemRangeChanged(position, images.size());
+                    }
+                });
             });
-        });
+        }
     }
 }
