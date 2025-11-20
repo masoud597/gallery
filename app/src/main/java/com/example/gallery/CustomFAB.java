@@ -68,7 +68,6 @@ public class CustomFAB extends LinearLayout {
         btnTwo.setImageResource(R.drawable.two);
         btnOpen.setImageResource(R.drawable.add);
 
-        btnOpen.setVisibility(GONE);
 
         btnOne.setBackgroundTintList(ColorStateList.valueOf(Color.WHITE));
         btnTwo.setBackgroundTintList(ColorStateList.valueOf(Color.LTGRAY));

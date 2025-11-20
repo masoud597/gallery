@@ -23,11 +23,15 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ViewHolder> 
     private final Context context;
     private final ArrayList<ImageModel> imageModelArraylist;
     ExecutorService executor;
-
-    public ImageAdapter(Context context, ArrayList<ImageModel> imageModelArraylist) {
+    private final OnImageLongClickListener longClickListener;
+    public interface OnImageLongClickListener {
+        void onImageLongClicked(int position);
+    }
+    public ImageAdapter(Context context, ArrayList<ImageModel> imageModelArraylist, OnImageLongClickListener listener) {
         this.context = context;
         this.imageModelArraylist = imageModelArraylist;
         this.executor = Executors.newFixedThreadPool(4);
+        this.longClickListener = listener;
     }
 
     @NonNull
@@ -68,6 +72,16 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ViewHolder> 
                 }
             });
         });
+        holder.itemView.setOnLongClickListener( v -> {
+            if (longClickListener != null) {
+                int currentPosition = holder.getBindingAdapterPosition();
+                if (currentPosition != RecyclerView.NO_POSITION) {
+                    longClickListener.onImageLongClicked(currentPosition);
+                }
+                return true;
+            }
+            return false;
+        });
     }
 
     private Bitmap decodeSampledBitmap(Uri fileUri, int width, int height) throws IOException {
@@ -103,6 +117,7 @@ public class ImageAdapter extends RecyclerView.Adapter<ImageAdapter.ViewHolder> 
     public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
         super.onDetachedFromRecyclerView(recyclerView);
         executor.shutdown();
+
     }
 
     @Override

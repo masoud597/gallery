@@ -1,5 +1,6 @@
 package com.example.gallery;
 
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.Uri;
@@ -9,6 +10,8 @@ import android.os.Looper;
 import android.util.Log;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -18,6 +21,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,10 +29,11 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements ImageAdapter.OnImageLongClickListener {
 
     public static final String PREFS_NAME = "GPref";
     public static final String KEY_DID_RUN = "DidRun";
@@ -38,6 +43,7 @@ public class MainActivity extends AppCompatActivity {
     ImageAdapter imageAdapter;
 
     private  ArrayList<ImageModel> images = new ArrayList<>();
+    private ActivityResultLauncher<String> selectImage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,17 +61,21 @@ public class MainActivity extends AppCompatActivity {
         CustomFAB bottomPanel = findViewById(R.id.bottomPanel);
         gridLayoutManager = new GridLayoutManager(this, 2);
         recView.setLayoutManager(gridLayoutManager);
-        String[] image = getAssetsList();
-        for (String img : image) {
-            Log.d("tag", img);
-        }
 
+        selectImage = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
+            if (uri != null) {
+                copySelectedImageToInternalStorage(uri);
+            }
+        });
 
-        imageAdapter = new ImageAdapter(this, images);
+        imageAdapter = new ImageAdapter(this, images, this);
         recView.setAdapter(imageAdapter);
 
         loadImages();
         bottomPanel.setOnSelectedColumnChangeListener(c -> gridLayoutManager.setSpanCount(c));
+        bottomPanel.setOpenButtonOnClickListener(() -> {
+            selectImage.launch("image/*");
+        });
     }
 
     private String[] getAssetsList() {
@@ -77,7 +87,26 @@ public class MainActivity extends AppCompatActivity {
         }
         return listImages;
     }
+    private void copySelectedImageToInternalStorage(Uri uri) {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        Handler handler = new Handler(Looper.getMainLooper());
 
+        executorService.execute(() -> {
+            long time = System.currentTimeMillis();
+            File newFile = new File(context.getFilesDir(), "IMG_" + time + ".jpg");
+            try(InputStream inputStream = context.getContentResolver().openInputStream(uri);
+            OutputStream outputStream = new FileOutputStream(newFile)) {
+                if(inputStream == null) return;
+                byte[] buffer = new byte[1024];
+                int length;
+                while ((length = inputStream.read(buffer)) > 0) {
+                    outputStream.write(buffer, 0, length);
+                }
+            } catch (Exception e) {throw new RuntimeException(e);}
+
+            handler.post(this::loadImages);
+        });
+    }
     private void loadImages() {
         ExecutorService executorService = Executors.newFixedThreadPool(4);
         Handler handler = new Handler(Looper.getMainLooper());
@@ -137,5 +166,41 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return imageList;
+    }
+
+    @Override
+    public void onImageLongClicked(int position) {
+        ImageModel imgToDelete = images.get(position);
+        new AlertDialog.Builder(this)
+                .setTitle("Delete Image")
+                .setMessage("Are you sure you want to delete this image?")
+                .setPositiveButton("Delete", (dialog, which) -> {
+                    deleteImage(imgToDelete, position);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+
+    }
+
+    private void deleteImage(ImageModel imgToDelete, int position) {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Handler handler = new Handler(getMainLooper());
+
+        executor.execute(() -> {
+            File fileToDelete = new File(imgToDelete.get_ImageURI().getPath());
+            boolean gotDeleted;
+            if (fileToDelete.exists()) gotDeleted = fileToDelete.delete();
+            else {
+                gotDeleted = false;
+            }
+
+            handler.post(() -> {
+                if (gotDeleted) {
+                    images.remove(position);
+                    imageAdapter.notifyItemRemoved(position);
+                    imageAdapter.notifyItemRangeChanged(position, images.size());
+                }
+            });
+        });
     }
 }
