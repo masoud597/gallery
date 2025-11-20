@@ -1,5 +1,6 @@
 package com.example.gallery;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -7,7 +8,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 
 import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
@@ -19,9 +19,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,7 +27,6 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -42,7 +39,7 @@ public class MainActivity extends AppCompatActivity implements ImageAdapter.OnIm
     private SharedPreferences sharedpref;
     ImageAdapter imageAdapter;
 
-    private  ArrayList<ImageModel> images = new ArrayList<>();
+    private final ArrayList<ImageModel> images = new ArrayList<>();
     private ActivityResultLauncher<String> selectImage;
 
     @Override
@@ -77,59 +74,60 @@ public class MainActivity extends AppCompatActivity implements ImageAdapter.OnIm
             selectImage.launch("image/*");
         });
     }
+    private void copySelectedImageToInternalStorage(Uri uri) {
+        try (ExecutorService executorService = Executors.newSingleThreadExecutor()) {
+            Handler handler = new Handler(Looper.getMainLooper());
 
-    private String[] getAssetsList() {
+            executorService.execute(() -> {
+                long time = System.currentTimeMillis();
+                File newFile = new File(context.getFilesDir(), "IMG_" + time + ".jpg");
+                try (InputStream inputStream = context.getContentResolver().openInputStream(uri);
+                     OutputStream outputStream = new FileOutputStream(newFile)) {
+                    if (inputStream == null) return;
+                    byte[] buffer = new byte[1024];
+                    int length;
+                    while ((length = inputStream.read(buffer)) > 0) {
+                        outputStream.write(buffer, 0, length);
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+
+                handler.post(this::loadImages);
+            });
+        }
+    }
+    @SuppressLint("NotifyDataSetChanged")
+    private void loadImages() {
+        try (ExecutorService executorService = Executors.newFixedThreadPool(4)) {
+            Handler handler = new Handler(Looper.getMainLooper());
+
+            executorService.execute(() -> {
+                sharedpref = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+                if (!sharedpref.getBoolean(KEY_DID_RUN, false)) {
+                    copyAssetImagesToInternalStorage();
+                    sharedpref.edit().putBoolean(KEY_DID_RUN, true).apply();
+                }
+                ArrayList<ImageModel> tempImages = getImageListsFromInternalStorage();
+
+                handler.post(() -> {
+                    images.clear();
+                    images.addAll(tempImages);
+                    imageAdapter.notifyDataSetChanged();
+                });
+            });
+        }
+
+
+    }
+    private void copyAssetImagesToInternalStorage(){
         String[] listImages;
         try {
             listImages = context.getAssets().list("img");
         } catch (IOException e) {
             listImages = new String[0];
         }
-        return listImages;
-    }
-    private void copySelectedImageToInternalStorage(Uri uri) {
-        ExecutorService executorService = Executors.newSingleThreadExecutor();
-        Handler handler = new Handler(Looper.getMainLooper());
-
-        executorService.execute(() -> {
-            long time = System.currentTimeMillis();
-            File newFile = new File(context.getFilesDir(), "IMG_" + time + ".jpg");
-            try(InputStream inputStream = context.getContentResolver().openInputStream(uri);
-            OutputStream outputStream = new FileOutputStream(newFile)) {
-                if(inputStream == null) return;
-                byte[] buffer = new byte[1024];
-                int length;
-                while ((length = inputStream.read(buffer)) > 0) {
-                    outputStream.write(buffer, 0, length);
-                }
-            } catch (Exception e) {throw new RuntimeException(e);}
-
-            handler.post(this::loadImages);
-        });
-    }
-    private void loadImages() {
-        ExecutorService executorService = Executors.newFixedThreadPool(4);
-        Handler handler = new Handler(Looper.getMainLooper());
-
-        executorService.execute(() -> {
-            sharedpref = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-            if (!sharedpref.getBoolean(KEY_DID_RUN, false)) {
-                copyAssetImagesToInternalStorage();
-                sharedpref.edit().putBoolean(KEY_DID_RUN, true).apply();
-            }
-            java.util.ArrayList<ImageModel> tempImages = getImageListsFromInternalStorage();
-
-            handler.post(() -> {
-                images.clear();
-                images.addAll(tempImages);
-                imageAdapter.notifyDataSetChanged();
-            });
-        });
-
-
-    }
-    private void copyAssetImagesToInternalStorage(){
-        for (String image : getAssetsList()) {
+        for (String image : listImages) {
             File copiedFile = new File(context.getFilesDir(), image);
             if (copiedFile.exists()) continue;
 
